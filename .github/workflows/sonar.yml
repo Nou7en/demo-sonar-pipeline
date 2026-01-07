@@ -8,93 +8,104 @@ on:
 jobs:
   # CAJA 1: Construcción e Instalación
   instalacion:
-    name: 📦 Construcción e Instalación
+    name:  Construcción
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Instalar Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
+          python-version: '3.9'
       - name: Descargar Librerías
         run: |
           python -m pip install --upgrade pip
           pip install pytest pytest-cov
-          echo "✅ Librerías descargadas correctamente."
-      - name: Verificar Compilación (Syntax Check)
-        run: |
-          python -m compileall .
-          echo "✅ El código compila correctamente (sintaxis válida)."
+          echo "Librerías listas."
 
-  # CAJA 2: Pruebas Unitarias (Depende de Instalación)
+  # CAJA 2: Pruebas Unitarias
   pruebas:
-    name: 🧪 Ejecutar Tests
-    needs: instalacion # Conecta con la caja anterior
+    name: Tests
+    needs: instalacion
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Instalar Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.9"
-      - name: Instalar dependencias y Testear
+      - name: Instalar y Testear
         run: |
           pip install pytest pytest-cov
           pytest --cov=. --cov-report=xml
-
-      # Guardamos el reporte para Sonar (Usando v4)
       - name: Guardar Reporte Coverage
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage.xml
 
-  # CAJA 3: SonarCloud (Depende de Pruebas)
+  # CAJA 3: SonarCloud
+  # Si falla aquí, se pone ROJO y detiene el despliegue
   sonar:
-    name: 🔍 SonarCloud Scan
+    name:  SonarCloud Scan
     needs: pruebas
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      # Descargamos el reporte (Usando v4)
       - name: Descargar Reporte Coverage
         uses: actions/download-artifact@v4
         with:
           name: coverage-report
-
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-  # CAJA 4: Despliegue (Depende de Sonar)
+  # CAJA 4: Despliegue
+  # Si Sonar falla, esta caja se salta (se pone GRIS)
   despliegue:
-    name: 🚀 Despliegue Simulado
+    name: Despliegue
     needs: sonar
     runs-on: ubuntu-latest
     steps:
       - name: Simular Deploy
         run: |
-          echo "Iniciando conexión sftp..."
-          sleep 1
-          echo "Subiendo archivos..."
-          sleep 1
-          echo "Reiniciando servidor..."
-          echo "✅ ¡Despliegue completado!"
+          echo "Desplegando a producción..."
+          sleep 2
+          echo "¡Despliegue completado!"
 
-  # CAJA 5: Notificación (Depende de Despliegue)
+  # CAJA 5: Notificación Inteligente
+  # Esta caja SIEMPRE corre, y te dice qué pasó
   notificacion:
-    name: 📧 Enviar Correo
-    needs: despliegue
+    name: Enviar Correo
+    needs: [sonar, despliegue]  # Observa a ambos trabajos
+    if: always()                # <--- ESTA ES LA CLAVE: Corre siempre
     runs-on: ubuntu-latest
     steps:
-      - name: Notificar a Tony
+      - name: Analizar Estado y Notificar
+        env:
+          RES_SONAR: ${{ needs.sonar.result }}
+          RES_DEPLOY: ${{ needs.despliegue.result }}
         run: |
-          echo "Enviando correo a tony.chenzhang@udla.edu.ec..."
-          echo "Asunto: [Pipeline] Todo salió bien"
+          echo "---------------------------------------"
+          # Lógica para decidir el mensaje del correo
+          if [ "$RES_SONAR" == "failure" ]; then
+            echo " ALERTA: El código fue rechazado por SonarCloud."
+            TITULO="[FALLO] Calidad insuficiente - No se desplegó"
+          
+          elif [ "$RES_DEPLOY" == "skipped" ]; then
+             echo " ALERTA: El despliegue se canceló por errores previos."
+             TITULO="[CANCELADO] Despliegue abortado"
+          
+          elif [ "$RES_DEPLOY" == "success" ]; then
+             echo " ÉXITO: Calidad aprobada y código en producción."
+             TITULO="[EXITO] Pipeline completado correctamente"
+          
+          else
+             echo " ERROR: Algo inesperado pasó."
+             TITULO="[ERROR] Revisar GitHub Actions"
+          fi
+
+          echo "---------------------------------------"
+          echo "Destinatario: tony.chenzhang@udla.edu.ec"
+          echo "Asunto: $TITULO"
           sleep 1
-          echo "✅ Correo enviado exitosamente."
+          echo " Correo enviado."
