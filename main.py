@@ -2,23 +2,17 @@ import os
 
 
 def calcular(x, y):
-    # Variable no usada (Code Smell)
-    z = 10
-
-    # Comparación inútil (Bug)
-    if x == x:
+    z = 10  # Code smell
+    if x == x:  # Bug
         print("Siempre es verdad")
-
-    # Contraseña hardcodeada (Vulnerabilidad de seguridad)
-    password = "admin123"
-
+    password = "admin123"  # Security Hotspot
     return x + y
 
 
 def loop_infinito():
-    # Loop infinito potencial (Bug)
     while True:
         print("Esto no para")
 
 
-print(calcular(5, 5))
+if __name__ == "__main__":
+    print(calcular(5, 5))

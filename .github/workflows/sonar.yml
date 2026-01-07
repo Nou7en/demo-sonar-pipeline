@@ -1,23 +1,64 @@
-name: Analisis de Calidad con Sonar
+name: Pipeline CI/CD Completo
 
 on:
   push:
     branches:
       - main
-  pull_request:
-    types: [opened, synchronize, reopened]
 
 jobs:
-  sonarcloud:
-    name: SonarCloud
+  build-test-scan-deploy:
+    name: Flujo Completo de Calidad
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
+      # 1. Descargar el código
+      - name: 📥 Checkout del Código
+        uses: actions/checkout@v3
         with:
-          fetch-depth: 0  
-      
-      - name: SonarCloud Scan
+          fetch-depth: 0
+
+      # 2. Instalar Librerías
+      - name: 🐍 Instalar Python y Dependencias
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: ⬇️ Instalar Librerías de Test
+        run: |
+          pip install pytest pytest-cov
+          echo "Librerías instaladas correctamente."
+
+      # 3. Test y Coverage (Genera el reporte para Sonar)
+      - name: 🧪 Ejecutar Tests y Coverage
+        run: |
+          pytest --cov=. --cov-report=xml
+          # Esto genera un archivo 'coverage.xml' que Sonar leerá
+
+      # 4. Análisis de SonarCloud
+      - name: 🔍 SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}    
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      # 5. Despliegue Simulado (Solo si Sonar pasa)
+      - name: 🚀 Despliegue a Producción (Simulado)
+        run: |
+          echo "Iniciando despliegue..."
+          sleep 2  # Pausa dramática para la demo
+          echo "Copiando archivos al servidor..."
+          sleep 2
+          echo "¡Despliegue completado con éxito!"
+
+      # 6. Notificación por Correo
+      - name: 📧 Notificar Resultado
+        run: |
+          echo "---------------------------------------------------"
+          echo "Generando reporte de envío..."
+          echo "Destinatario: tony.chenzhang@udla.edu.ec"
+          echo "Asunto: [GitHub Actions] Pipeline Exitoso"
+          echo "Estado: COMPLETADO"
+          echo "Enviando correo..."
+          sleep 1
+          echo "✅ Correo enviado exitosamente a tony.chenzhang@udla.edu.ec"
+          echo "---------------------------------------------------"
