@@ -1,4 +1,4 @@
-name: Pipeline CI/CD Completo
+name: Pipeline Visual de Calidad
 
 on:
   push:
@@ -6,59 +6,69 @@ on:
       - main
 
 jobs:
-  build-test-scan-deploy:
-    name: Flujo Completo de Calidad
+  # CAJA 1: Pruebas Unitarias
+  pruebas:
+    name: 🧪 Ejecutar Tests
     runs-on: ubuntu-latest
-
     steps:
-      # 1. Descargar el código
-      - name: 📥 Checkout del Código
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      # 2. Instalar Librerías
-      - name: 🐍 Instalar Python y Dependencias
+      - uses: actions/checkout@v3
+      - name: Instalar Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.9"
-
-      - name: ⬇️ Instalar Librerías de Test
+      - name: Instalar dependencias y Testear
         run: |
           pip install pytest pytest-cov
-          echo "Librerías instaladas correctamente."
-
-      # 3. Test y Coverage (Genera el reporte para Sonar)
-      - name: 🧪 Ejecutar Tests y Coverage
-        run: |
           pytest --cov=. --cov-report=xml
-          # Esto genera un archivo 'coverage.xml' que Sonar leerá
+      # Guardamos el reporte de coverage para pasarlo a la siguiente caja
+      - name: Guardar Reporte Coverage
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: coverage.xml
 
-      # 4. Análisis de SonarCloud
-      - name: 🔍 SonarCloud Scan
+  # CAJA 2: SonarCloud (Depende de Pruebas)
+  sonar:
+    name: 🔍 SonarCloud Scan
+    needs: pruebas # Esto conecta la caja con la anterior
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      # Descargamos el reporte de la caja anterior
+      - name: Descargar Reporte Coverage
+        uses: actions/download-artifact@v3
+        with:
+          name: coverage-report
+
+      - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      # 5. Despliegue Simulado (Solo si Sonar pasa)
-      - name: 🚀 Despliegue a Producción (Simulado)
+  # CAJA 3: Despliegue (Depende de Sonar)
+  despliegue:
+    name: 🚀 Despliegue Simulado
+    needs: sonar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Simular Deploy
         run: |
-          echo "Iniciando despliegue..."
-          sleep 2  # Pausa dramática para la demo
-          echo "Copiando archivos al servidor..."
+          echo "Desplegando a producción..."
           sleep 2
-          echo "¡Despliegue completado con éxito!"
+          echo "¡Despliegue completado!"
 
-      # 6. Notificación por Correo
-      - name: 📧 Notificar Resultado
+  # CAJA 4: Notificación (Depende de Despliegue)
+  notificacion:
+    name: 📧 Enviar Correo
+    needs: despliegue
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notificar a Tony
         run: |
-          echo "---------------------------------------------------"
-          echo "Generando reporte de envío..."
-          echo "Destinatario: tony.chenzhang@udla.edu.ec"
-          echo "Asunto: [GitHub Actions] Pipeline Exitoso"
-          echo "Estado: COMPLETADO"
-          echo "Enviando correo..."
+          echo "Enviando correo a tony.chenzhang@udla.edu.ec..."
+          echo "Asunto: Pipeline Exitoso"
           sleep 1
-          echo "✅ Correo enviado exitosamente a tony.chenzhang@udla.edu.ec"
-          echo "---------------------------------------------------"
+          echo "✅ Correo enviado."
