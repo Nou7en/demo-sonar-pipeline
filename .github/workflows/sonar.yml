@@ -6,12 +6,33 @@ on:
       - main
 
 jobs:
-  # CAJA 1: Pruebas Unitarias
-  pruebas:
-    name: 🧪 Ejecutar Tests
+  # CAJA 1: Construcción e Instalación
+  instalacion:
+    name: 📦 Construcción e Instalación
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - name: Instalar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+      - name: Descargar Librerías
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov
+          echo "✅ Librerías descargadas correctamente."
+      - name: Verificar Compilación (Syntax Check)
+        run: |
+          python -m compileall .
+          echo "✅ El código compila correctamente (sintaxis válida)."
+
+  # CAJA 2: Pruebas Unitarias (Depende de Instalación)
+  pruebas:
+    name: 🧪 Ejecutar Tests
+    needs: instalacion # Conecta con la caja anterior
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - name: Instalar Python
         uses: actions/setup-python@v4
         with:
@@ -20,25 +41,27 @@ jobs:
         run: |
           pip install pytest pytest-cov
           pytest --cov=. --cov-report=xml
-      # Guardamos el reporte de coverage para pasarlo a la siguiente caja
+
+      # Guardamos el reporte para Sonar (Usando v4)
       - name: Guardar Reporte Coverage
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage.xml
 
-  # CAJA 2: SonarCloud (Depende de Pruebas)
+  # CAJA 3: SonarCloud (Depende de Pruebas)
   sonar:
     name: 🔍 SonarCloud Scan
-    needs: pruebas # Esto conecta la caja con la anterior
+    needs: pruebas
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      # Descargamos el reporte de la caja anterior
+
+      # Descargamos el reporte (Usando v4)
       - name: Descargar Reporte Coverage
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: coverage-report
 
@@ -48,7 +71,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-  # CAJA 3: Despliegue (Depende de Sonar)
+  # CAJA 4: Despliegue (Depende de Sonar)
   despliegue:
     name: 🚀 Despliegue Simulado
     needs: sonar
@@ -56,11 +79,14 @@ jobs:
     steps:
       - name: Simular Deploy
         run: |
-          echo "Desplegando a producción..."
-          sleep 2
-          echo "¡Despliegue completado!"
+          echo "Iniciando conexión sftp..."
+          sleep 1
+          echo "Subiendo archivos..."
+          sleep 1
+          echo "Reiniciando servidor..."
+          echo "✅ ¡Despliegue completado!"
 
-  # CAJA 4: Notificación (Depende de Despliegue)
+  # CAJA 5: Notificación (Depende de Despliegue)
   notificacion:
     name: 📧 Enviar Correo
     needs: despliegue
@@ -69,6 +95,6 @@ jobs:
       - name: Notificar a Tony
         run: |
           echo "Enviando correo a tony.chenzhang@udla.edu.ec..."
-          echo "Asunto: Pipeline Exitoso"
+          echo "Asunto: [Pipeline] Todo salió bien"
           sleep 1
-          echo "✅ Correo enviado."
+          echo "✅ Correo enviado exitosamente."
